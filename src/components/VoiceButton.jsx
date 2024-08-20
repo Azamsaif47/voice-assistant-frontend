@@ -4,13 +4,11 @@ import '../styles/VoiceButton.scss';
 const VoiceButton = () => {
     const [listening, setListening] = useState(false);
 
-    // Function to handle button click and start the voice recognition process
     const handleClick = () => {
         setListening(true);
         startListening();
     };
 
-    // Function to start voice recognition
     const startListening = () => {
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'en-US';
@@ -24,12 +22,13 @@ const VoiceButton = () => {
             console.log('Voice Input:', voiceInput);
 
             // Send the voice input to the backend for processing
-            const responseText = await sendQueryToBackend(voiceInput);
+            const audioUrl = await sendQueryToBackend(voiceInput);
 
-            // Convert the response text to speech
-            speakText(responseText);
+            // Play the audio response
+            if (audioUrl) {
+                playAudio(audioUrl);
+            }
 
-            // Stop the spinning animation once processing is done
             setListening(false);
         };
 
@@ -40,7 +39,6 @@ const VoiceButton = () => {
         };
     };
 
-    // Function to send the text query to the backend
     const sendQueryToBackend = async (inputText) => {
         try {
             const response = await fetch("http://127.0.0.1:8000/process_query", {
@@ -51,20 +49,22 @@ const VoiceButton = () => {
                 body: JSON.stringify({ input_text: inputText }),
             });
 
-            const data = await response.json();
-            return data.response_text;
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            return audioUrl;
         } catch (error) {
             console.error('Error sending query to backend:', error);
-            return "Sorry, there was an error processing your request.";
+            return "";
         }
     };
 
-    // Function to convert text to speech
-    const speakText = (text) => {
-        const synth = window.speechSynthesis;
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        synth.speak(utterance);
+    const playAudio = (audioUrl) => {
+        const audio = new Audio(audioUrl);
+        audio.play();
     };
 
     return (
@@ -72,10 +72,10 @@ const VoiceButton = () => {
             <button
                 className={`voice-button ${listening ? 'spinning' : ''}`}
                 onClick={handleClick}
-                disabled={listening}  // Disable the button while it's processing
+                disabled={listening}
             >
                 <div className="voice-button__icon">
-                    {/* You can add an icon or SVG here if desired */}
+                    {/* Add an icon or SVG here if desired */}
                 </div>
             </button>
         </div>
